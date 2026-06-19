@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="bg">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Счетоводство - Табло</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div id="translate-spacer" style="display:none;"><br><br></div>
+    <div id="app" style="display: none;">
+        <div class="dashboard-header">
+            <div class="nav-left">
+                <button onclick="navigate('students')">Настани ученици</button>
+                <button onclick="navigate('pay')">Плати</button>
+                <button onclick="navigate('reports')">Справки</button>
+                <button onclick="navigate('pos')">Фиксален принтер</button>
+                <button onclick="navigate('docs')">Документация</button>
+                <button onclick="navigate('settings')">Настройки</button>
+                <button onclick="navigate('backup')">Архиви</button>
+            </div>
+            <div class="nav-right">
+                <div id="google_translate_element"
+                    style="display: inline-block; vertical-align: middle; margin-right: 10px;"></div>
+                <span id="userRole"></span>
+                <button onclick="logout()">Изход</button>
+            </div>
+        </div>
+        <hr>
+        <main id="content">
+
+        </main>
+    </div>
+
+    <script type="text/javascript">
+        function googleTranslateElementInit() {
+            new google.translate.TranslateElement({
+                pageLanguage: 'bg',
+                includedLanguages: 'en',
+                layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
+                autoDisplay: false
+            }, 'google_translate_element');
+        }
+    </script>
+    <script type="text/javascript"
+        src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
+    <script src="js/main.js"></script>
+    <script src="js/navigation.js"></script>
+    <script src="js/students.js"></script>
+    <script src="js/rooms.js"></script>
+    <script src="js/reports.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/pay.js"></script>
+</body>
+
+</html>

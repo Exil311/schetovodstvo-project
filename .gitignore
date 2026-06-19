@@ -1,0 +1,5 @@
+/node_modules
+.env
+cookies.txt
+/php-8.5.3-Win32-vs17-x64
+/old/old_database.sql
