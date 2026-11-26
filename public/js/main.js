@@ -29,6 +29,36 @@ window.callLocalPrinter = function (endpoint, payload) {
     return fetch(`http://127.0.0.1:5001${endpoint}`, opts);
 };
 
+window.verifyLocalPrinterConnected = async function () {
+    const headers = {};
+    const token = window.getLocalPrinterToken();
+    if (token) headers['X-Print-Token'] = token;
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+        const resp = await fetch('http://127.0.0.1:5001/printer-status', {
+            method: 'GET',
+            headers,
+            signal: controller.signal
+        });
+        let data = {};
+        try { data = await resp.json(); } catch (_) {}
+
+        if (resp.status === 401) {
+            return { ok: false, error: 'Невалиден токен за локален принтер. Въведете правилния токен в меню "Фискален принтер".' };
+        }
+        if (resp.ok && data.printer_connected) {
+            return { ok: true };
+        }
+        return { ok: false, error: data.error || 'Фискалният принтер не е свързан или не отговаря.' };
+    } catch (err) {
+        return { ok: false, error: 'Няма връзка с локалния принтер (print-receipt.py не работи на 127.0.0.1:5001).' };
+    } finally {
+        clearTimeout(timer);
+    }
+};
+
 // Automatically redirect to login page if session expires (401 Unauthorized)
 const originalFetch = window.fetch;
 window.fetch = async function(...args) {

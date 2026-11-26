@@ -234,9 +234,38 @@ def print_to_datecs(data):
         raise e
 
 
+def check_datecs_connected():
+    """
+    Verify that the Datecs fiscal printer is physically connected on COM_PORT
+    by sending a non-intrusive Read Status command (0x4A).
+    """
+    ser = None
+    try:
+        ser = serial.Serial(COM_PORT, BAUD_RATE, timeout=3)
+        resp = send_datecs_command(ser, 0x4A, "")
+        ser.close()
+        if resp:
+            return True, None
+        return False, f"Фискалният принтер на {COM_PORT} не отговаря."
+    except Exception as e:
+        if ser and ser.is_open:
+            ser.close()
+        return False, f"Няма връзка с фискалния принтер на {COM_PORT}: {e}"
+
+
 @app.route("/health", methods=["GET"])
 def health():
     return jsonify({"success": True, "token_required": bool(PRINT_AGENT_TOKEN)}), 200
+
+
+@app.route("/printer-status", methods=["GET"])
+def printer_status():
+    if not verify_print_token():
+        return jsonify({"success": False, "printer_connected": False, "error": "Невалиден токен за локален принтер (X-Print-Token)."}), 401
+    connected, err = check_datecs_connected()
+    if connected:
+        return jsonify({"success": True, "printer_connected": True}), 200
+    return jsonify({"success": False, "printer_connected": False, "error": err}), 503
 
 
 @app.route("/print-receipt", methods=["POST"])

@@ -572,7 +572,7 @@ function closePayModal() {
     if (mdl) mdl.remove();
 }
 
-function confirmPay(paidMnths) {
+async function confirmPay(paidMnths) {
     if (!paidMnths || paidMnths.length === 0) return;
 
     const student = currentData.student;
@@ -580,19 +580,29 @@ function confirmPay(paidMnths) {
     const payMethSelect = document.getElementById('payMethod');
     const payMeth = payMethSelect ? payMethSelect.value : 'cash';
     const btn = document.getElementById('btnConf');
-    if (btn) { btn.innerText = "Записване..."; btn.disabled = true; }
+    if (btn) { btn.innerText = "Проверка на принтера..."; btn.disabled = true; }
 
-    fetch(`/api/students/${student.id}/process-payment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payments: paidMnths, payment_method: payMeth })
-    })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) {
-                // Принт логика (само за плащане в брой)
-                if (payMeth === 'cash') {
-                    callLocalPrinter('/print-receipt', {
+    const printerCheck = await verifyLocalPrinterConnected();
+    if (!printerCheck.ok) {
+        alert('Плащането НЕ беше записано!\n\n' + printerCheck.error);
+        if (btn) { btn.innerText = "ЗАПИШИ ПЛАЩАНЕТО"; btn.disabled = false; }
+        return;
+    }
+
+    if (btn) { btn.innerText = "Записване..."; }
+
+    try {
+        const r = await fetch(`/api/students/${student.id}/process-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payments: paidMnths, payment_method: payMeth })
+        });
+        const d = await r.json();
+        if (d.success) {
+            // Принт логика (само за плащане в брой)
+            if (payMeth === 'cash') {
+                try {
+                    const printResp = await callLocalPrinter('/print-receipt', {
                         student_name: `${student.first_name} ${student.middle_name || ''} ${student.last_name}`.replace(/\s+/g, ' ').trim(),
                         egn: student.egn,
                         class_num: student.class_number,
@@ -604,22 +614,28 @@ function confirmPay(paidMnths) {
                         received_amount: parseFloat(document.getElementById('receivedAmount').value) || 0,
                         invoice_num: String(d.payment_id || ''),
                         cashier: "ADMIN"
-                    }).catch(e => console.log('Print error ignored:', e));
+                    });
+                    if (!printResp.ok) {
+                        alert('Внимание: Плащането е записано, но възникна грешка при отпечатване на касовия бон!');
+                    }
+                } catch (e) {
+                    console.error('Print error:', e);
+                    alert('Внимание: Плащането е записано, но възникна грешка при отпечатване на касовия бон!');
                 }
-
-                alert('Плащането е записано успешно!');
-                closePayModal();
-                selStudent(student.id);
-            } else {
-                alert('Грешка: ' + (d.error || 'Неизвестна'));
-                if (btn) { btn.innerText = "ЗАПИШИ ПЛАЩАНЕТО"; btn.disabled = false; }
             }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Сървърна грешка.');
+
+            alert('Плащането е записано успешно!');
+            closePayModal();
+            selStudent(student.id);
+        } else {
+            alert('Грешка: ' + (d.error || 'Неизвестна'));
             if (btn) { btn.innerText = "ЗАПИШИ ПЛАЩАНЕТО"; btn.disabled = false; }
-        });
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Сървърна грешка.');
+        if (btn) { btn.innerText = "ЗАПИШИ ПЛАЩАНЕТО"; btn.disabled = false; }
+    }
 }
 
 function showNotes(studentId, notes, updatedAt) {
@@ -896,9 +912,16 @@ window.submitAdditionalPayments = async function () {
     const method = document.getElementById('addPayMethod').value;
     const btn = document.getElementById('addSubmitBtn');
     btn.disabled = true;
-    btn.innerText = "Записване...";
+    btn.innerText = "Проверка на принтера...";
 
     try {
+        const printerCheck = await verifyLocalPrinterConnected();
+        if (!printerCheck.ok) {
+            alert('Допълнителното плащане НЕ беше записано!\n\n' + printerCheck.error);
+            return;
+        }
+
+        btn.innerText = "Записване...";
         const studentId = currentData.student.id;
         const resp = await fetch(`/api/students/${studentId}/process-additional-payment`, {
             method: 'POST',
@@ -913,23 +936,31 @@ window.submitAdditionalPayments = async function () {
             // Принт логика за допълнителни плащания (само за плащане в брой)
             if (method === 'cash') {
                 const student = currentData.student;
-                callLocalPrinter('/print-receipt', {
-                    student_name: `${student.first_name} ${student.middle_name || ''} ${student.last_name}`.replace(/\s+/g, ' ').trim(),
-                    egn: student.egn,
-                    class_num: student.class_number,
-                    block: student.block || '-',
-                    room: student.room_number || '-',
-                    payments_list: payments.map(p => ({
-                        month_name: `Доп. (${new Date(p.date_from).toLocaleDateString('bg-BG')} - ${new Date(p.date_to).toLocaleDateString('bg-BG')})`,
-                        year: p.year,
-                        amount_paid: p.amount_paid
-                    })),
-                    amount_euro: totalAmount,
-                    method: method,
-                    received_amount: parseFloat(document.getElementById('addReceivedAmount').value) || 0,
-                    invoice_num: String(data.payment_id || ''),
-                    cashier: "ADMIN"
-                }).catch(e => console.log('Print error ignored:', e));
+                try {
+                    const printResp = await callLocalPrinter('/print-receipt', {
+                        student_name: `${student.first_name} ${student.middle_name || ''} ${student.last_name}`.replace(/\s+/g, ' ').trim(),
+                        egn: student.egn,
+                        class_num: student.class_number,
+                        block: student.block || '-',
+                        room: student.room_number || '-',
+                        payments_list: payments.map(p => ({
+                            month_name: `Доп. (${new Date(p.date_from).toLocaleDateString('bg-BG')} - ${new Date(p.date_to).toLocaleDateString('bg-BG')})`,
+                            year: p.year,
+                            amount_paid: p.amount_paid
+                        })),
+                        amount_euro: totalAmount,
+                        method: method,
+                        received_amount: parseFloat(document.getElementById('addReceivedAmount').value) || 0,
+                        invoice_num: String(data.payment_id || ''),
+                        cashier: "ADMIN"
+                    });
+                    if (!printResp.ok) {
+                        alert('Внимание: Плащането е записано, но възникна грешка при отпечатване на касовия бон!');
+                    }
+                } catch (e) {
+                    console.error('Print error:', e);
+                    alert('Внимание: Плащането е записано, но възникна грешка при отпечатване на касовия бон!');
+                }
             }
 
             alert('Допълнителното плащане е записано успешно!');
