@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+cookies.txt
+
+# Backups, dumps & archives (contain student PII!)
+archives/
+*.zip
+*.tar.gz
+*.dump
+
+# Local-only Windows / DB admin tools (never deploy or commit)
+adminer.php
+php-8.5.3-Win32-vs17-x64/
+php-*/
+pictures_old_app/
+ProgramStarter/
+doc.txt
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.log
